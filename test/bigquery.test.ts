@@ -97,6 +97,68 @@ describe('BigQueryFormatter', () => {
       expect(format(result)).toBe(result);
     });
 
+    it('indents pipe queries inside CTEs and restores the outer pipeline indentation', () => {
+      const result = format(
+        'with filtered as (from sales |> where amount > 0 |> extend amount * 2 as doubled) from filtered |> select doubled'
+      );
+      expect(result).toBe(dedent`
+        with
+          filtered as (
+            from
+              sales
+              |> where amount > 0
+              |> extend
+                amount * 2 as doubled
+          )
+        from
+          filtered
+          |> select
+            doubled
+      `);
+      expect(format(result)).toBe(result);
+    });
+
+    it('indents a nested pipeline within a SET body', () => {
+      const result = format(
+        'from sales |> set amount = (from adjustments |> where active |> aggregate sum(delta) as total |> select total) |> drop obsolete'
+      );
+      expect(result).toBe(dedent`
+        from
+          sales
+          |> set
+            amount = (
+              from
+                adjustments
+                |> where active
+                |> aggregate
+                  sum(delta) as total
+                |> select
+                  total
+            )
+          |> drop
+            obsolete
+      `);
+      expect(format(result)).toBe(result);
+    });
+
+    it('keeps nested pipe steps multiline even with a large expression width', () => {
+      const query = 'from sales |> select (from adjustments |> select ?) as total |> as s';
+      const result = format(query, { expressionWidth: 1000, params: ['42'] });
+      expect(result).toBe(dedent`
+        from
+          sales
+          |> select
+            (
+              from
+                adjustments
+                |> select
+                  42
+            ) as total
+          |> as s
+      `);
+      expect(format(result)).toBe(result);
+    });
+
     it('preserves bitwise operators and pipes inside strings', () => {
       expect(format("FROM sales |> SELECT a | b, a >> 1, '|>';")).toBe(dedent`
         FROM
