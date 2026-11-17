@@ -93,10 +93,18 @@ expressions_or_clauses -> free_form_sql:* clause:* pipe_step:* {%
   ([expressions, clauses, pipes]) => [...expressions, ...clauses, ...pipes]
 %}
 
-pipe_step -> %PIPE free_form_sql:* clause:* {%
-  ([pipe, expressions, clauses]) => ({
+pipe_step -> %PIPE _ (clause | pipe_clause):+ {%
+  ([pipe, comments, clauses]) => ({
     type: NodeType.pipe,
-    children: [...expressions, ...clauses],
+    children: addCommentsToArray(clauses.map(([clause]: [AstNode]) => clause), { leading: comments }),
+  })
+%}
+
+pipe_clause -> %PIPE_CLAUSE free_form_sql:* {%
+  ([nameToken, children]) => ({
+    type: NodeType.pipe_clause,
+    nameKw: toKeywordNode(nameToken),
+    children,
   })
 %}
 
@@ -145,8 +153,8 @@ all_columns_asterisk -> %ASTERISK {%
   () => ({ type: NodeType.all_columns_asterisk })
 %}
 
-other_clause -> (%RESERVED_CLAUSE | %PIPE_CLAUSE) free_form_sql:* {%
-  ([[nameToken], children]) => ({
+other_clause -> %RESERVED_CLAUSE free_form_sql:* {%
+  ([nameToken, children]) => ({
     type: NodeType.clause,
     nameKw: toKeywordNode(nameToken),
     children,

@@ -44,6 +44,7 @@ interface ExpressionFormatterParams {
   params: Params;
   layout: Layout;
   inline?: boolean;
+  pipeContext?: boolean;
 }
 
 export interface DialectFormatOptions {
@@ -71,13 +72,22 @@ export default class ExpressionFormatter {
   private layout: Layout;
 
   private inline = false;
+  private pipeContext = false;
   private nodes: AstNode[] = [];
   private index = -1;
 
-  constructor({ cfg, dialectCfg, params, layout, inline = false }: ExpressionFormatterParams) {
+  constructor({
+    cfg,
+    dialectCfg,
+    params,
+    layout,
+    inline = false,
+    pipeContext = false,
+  }: ExpressionFormatterParams) {
     this.cfg = cfg;
     this.dialectCfg = dialectCfg;
     this.inline = inline;
+    this.pipeContext = pipeContext;
     this.params = params;
     this.layout = layout;
   }
@@ -118,6 +128,7 @@ export default class ExpressionFormatter {
       case NodeType.case_else:
         return this.formatCaseElse(node);
       case NodeType.clause:
+      case NodeType.pipe_clause:
         return this.formatClause(node);
       case NodeType.pipe:
         return this.formatPipe(node);
@@ -255,7 +266,15 @@ export default class ExpressionFormatter {
     this.layout.add(WS.NEWLINE, WS.INDENT, '|>', WS.SPACE);
     const outerLayout = this.layout;
     this.layout = new Layout(outerLayout.indentation);
-    const items = this.formatSubExpression(node.children).getLayoutItems();
+    const items = new ExpressionFormatter({
+      cfg: this.cfg,
+      dialectCfg: this.dialectCfg,
+      params: this.params,
+      layout: this.layout,
+      pipeContext: true,
+    })
+      .format(node.children)
+      .getLayoutItems();
     // Clause formatters start with a newline. Keep the first keyword beside |>.
     while (typeof items[0] === 'number' && items[0] !== WS.MANDATORY_NEWLINE) {
       items.shift();
@@ -276,7 +295,7 @@ export default class ExpressionFormatter {
   }
 
   private isOnelineClause(node: ClauseNode): boolean {
-    if (node.nameKw.tokenType === TokenType.PIPE_CLAUSE) {
+    if (this.pipeContext) {
       return !['SELECT', 'ORDER BY', 'AGGREGATE', 'EXTEND', 'SET', 'DROP'].includes(
         node.nameKw.text
       );
@@ -320,7 +339,7 @@ export default class ExpressionFormatter {
     });
     this.layout.indentation.increaseTopLevel();
 
-    if (isTabularStyle(this.cfg)) {
+    if (this.pipeContext || isTabularStyle(this.cfg)) {
       this.layout.add(WS.SPACE);
     } else {
       this.layout.add(WS.NEWLINE, WS.INDENT);

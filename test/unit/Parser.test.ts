@@ -1,5 +1,76 @@
 import Tokenizer from '../../src/lexer/Tokenizer.js';
 import { createParser } from '../../src/parser/createParser.js';
+import { bigquery } from '../../src/languages/bigquery/bigquery.formatter.js';
+
+describe('BigQuery pipe clauses', () => {
+  const parse = (sql: string) =>
+    createParser(new Tokenizer(bigquery.tokenizerOptions, 'bigquery')).parse(sql, {});
+
+  it('parses pipe-specific clauses as structured nodes', () => {
+    const [statement] = parse(
+      'from sales |> extend amount * 2 as doubled |> set amount = doubled |> drop doubled |> as s'
+    );
+    expect(statement.children).toMatchObject([
+      { type: 'clause', nameKw: { text: 'FROM' } },
+      {
+        type: 'pipe',
+        children: [
+          { type: 'pipe_clause', nameKw: { text: 'EXTEND' }, children: expect.any(Array) },
+        ],
+      },
+      {
+        type: 'pipe',
+        children: [{ type: 'pipe_clause', nameKw: { text: 'SET' }, children: expect.any(Array) }],
+      },
+      {
+        type: 'pipe',
+        children: [{ type: 'pipe_clause', nameKw: { text: 'DROP' }, children: expect.any(Array) }],
+      },
+      {
+        type: 'pipe',
+        children: [{ type: 'pipe_clause', nameKw: { text: 'AS' }, children: expect.any(Array) }],
+      },
+    ]);
+  });
+
+  it('keeps GROUP BY within the AGGREGATE step and preserves standard SELECT parsing', () => {
+    const [statement] = parse(
+      'from sales |> aggregate sum(amount) as total group by region |> select *'
+    );
+    expect(statement.children).toMatchObject([
+      { type: 'clause', nameKw: { text: 'FROM' } },
+      {
+        type: 'pipe',
+        children: [
+          { type: 'pipe_clause', nameKw: { text: 'AGGREGATE' } },
+          { type: 'clause', nameKw: { text: 'GROUP BY' } },
+        ],
+      },
+      {
+        type: 'pipe',
+        children: [
+          {
+            type: 'clause',
+            nameKw: { text: 'SELECT' },
+            children: [{ type: 'all_columns_asterisk' }],
+          },
+        ],
+      },
+    ]);
+  });
+
+  it('leaves pipe-only words as identifiers outside pipe steps', () => {
+    const [statement] = parse('select aggregate, extend from sales');
+    expect(statement.children[0]).toMatchObject({
+      type: 'clause',
+      children: [
+        { type: 'identifier', text: 'aggregate' },
+        { type: 'comma' },
+        { type: 'identifier', text: 'extend' },
+      ],
+    });
+  });
+});
 
 describe('Parser', () => {
   const parse = (sql: string) => {

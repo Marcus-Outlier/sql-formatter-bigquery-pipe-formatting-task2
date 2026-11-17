@@ -210,8 +210,9 @@ function postProcess(tokens: Token[]): Token[] {
     }
     if (afterPipe) {
       afterPipe = false;
-      // Keep SELECT's special handling of the all-columns asterisk.
-      if (token.type !== TokenType.RESERVED_SELECT && /^[a-z]+(?: [a-z]+)*$/i.test(token.text)) {
+      // Only pipe-specific clauses need contextual recognition. Standard clauses
+      // retain their existing parser rules (including SELECT's asterisk handling).
+      if (['AGGREGATE', 'EXTEND', 'SET', 'DROP', 'AS'].includes(token.text.toUpperCase())) {
         return { ...token, type: TokenType.PIPE_CLAUSE, text: token.text.toUpperCase() };
       }
     }

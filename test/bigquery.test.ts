@@ -117,6 +117,22 @@ describe('BigQueryFormatter', () => {
       expect(format(result)).toBe(result);
     });
 
+    it('keeps GROUP BY inline with its body within an AGGREGATE step', () => {
+      const result = format(
+        'from sales |> aggregate sum(amount) as total group by region |> select *'
+      );
+      expect(result).toBe(dedent`
+        from
+          sales
+          |> aggregate
+            sum(amount) as total
+          group by region
+          |> select
+            *
+      `);
+      expect(format(result)).toBe(result);
+    });
+
     it.each(['select', 'order by', 'aggregate', 'extend', 'set', 'drop'])(
       'indents the body of %s and preserves lowercase input',
       keyword => {
