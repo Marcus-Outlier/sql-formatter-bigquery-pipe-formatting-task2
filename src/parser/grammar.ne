@@ -89,8 +89,15 @@ statement -> expressions_or_clauses (%DELIMITER | %EOF) {%
 %}
 
 # To avoid ambiguity, plain expressions can only come before clauses
-expressions_or_clauses -> free_form_sql:* clause:* {%
-  ([expressions, clauses]) => [...expressions, ...clauses]
+expressions_or_clauses -> free_form_sql:* clause:* pipe_step:* {%
+  ([expressions, clauses, pipes]) => [...expressions, ...clauses, ...pipes]
+%}
+
+pipe_step -> %PIPE free_form_sql:* clause:* {%
+  ([pipe, expressions, clauses]) => ({
+    type: NodeType.pipe,
+    children: [...expressions, ...clauses],
+  })
 %}
 
 clause ->

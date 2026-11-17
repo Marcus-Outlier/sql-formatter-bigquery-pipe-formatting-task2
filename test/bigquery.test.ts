@@ -65,6 +65,68 @@ describe('BigQueryFormatter', () => {
   supportsLimiting(format, { limit: true, offset: true });
   supportsDataTypeCase(format);
 
+  describe('pipe syntax', () => {
+    it('starts with FROM and indents each pipe step without splitting the operator', () => {
+      const result = format('FROM sales |> WHERE amount > 0 |> SELECT region, amount |> LIMIT 10;');
+      expect(result).toBe(dedent`
+        FROM
+          sales
+          |> WHERE
+            amount > 0
+          |> SELECT
+            region,
+            amount
+          |> LIMIT
+            10;
+      `);
+      expect(format(result)).toBe(result);
+    });
+
+    it('supports pipes after standard queries and inside subqueries', () => {
+      const result = format('SELECT * FROM (FROM sales |> WHERE amount > 0) |> SELECT *;');
+      expect(result).toBe(dedent`
+        SELECT
+          *
+        FROM
+          (
+            FROM
+              sales
+              |> WHERE
+                amount > 0
+          )
+          |> SELECT
+            *;
+      `);
+      expect(format(result)).toBe(result);
+    });
+
+    it('preserves bitwise operators and pipes inside strings', () => {
+      expect(format("FROM sales |> SELECT a | b, a >> 1, '|>';")).toBe(dedent`
+        FROM
+          sales
+          |> SELECT
+            a | b,
+            a >> 1,
+            '|>';
+      `);
+    });
+
+    it('supports pipe-specific steps and comments', () => {
+      const result = format(
+        'FROM sales |> AGGREGATE SUM(amount) AS total GROUP BY region |> /* next */ SELECT total'
+      );
+      expect(result).toContain('|> AGGREGATE');
+      expect(result).toContain('|> /* next */');
+      expect(format(result)).toBe(result);
+    });
+
+    it('respects keyword case and indentation options', () => {
+      expect(format('FROM sales |> WHERE amount > 0', { keywordCase: 'lower', tabWidth: 4 })).toBe(
+        'from\n    sales\n    |> where\n        amount > 0'
+      );
+    });
+  });
+
   // Note: BigQuery supports single dashes inside identifiers, so my-ident would be
   // detected as identifier, while other SQL dialects would detect it as
   // "my" <minus> "ident"

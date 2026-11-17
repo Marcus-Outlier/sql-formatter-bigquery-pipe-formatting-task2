@@ -3,6 +3,7 @@ import { TokenType } from '../lexer/token.js';
 export enum NodeType {
   statement = 'statement',
   clause = 'clause',
+  pipe = 'pipe',
   set_operation = 'set_operation',
   function_call = 'function_call',
   parameterized_data_type = 'parameterized_data_type',
@@ -41,6 +42,11 @@ export interface StatementNode extends BaseNode {
 export interface ClauseNode extends BaseNode {
   type: NodeType.clause;
   nameKw: KeywordNode;
+  children: AstNode[];
+}
+
+export interface PipeNode extends BaseNode {
+  type: NodeType.pipe;
   children: AstNode[];
 }
 
@@ -188,6 +194,7 @@ export interface DisableCommentNode extends BaseNode {
 export type CommentNode = LineCommentNode | BlockCommentNode | DisableCommentNode;
 
 export type AstNode =
+  | PipeNode
   | ClauseNode
   | SetOperationNode
   | FunctionCallNode

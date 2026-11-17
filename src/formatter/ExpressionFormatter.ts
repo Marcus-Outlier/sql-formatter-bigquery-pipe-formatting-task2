@@ -11,6 +11,7 @@ import {
   BetweenPredicateNode,
   SetOperationNode,
   ClauseNode,
+  PipeNode,
   FunctionCallNode,
   LimitClauseNode,
   NodeType,
@@ -118,6 +119,8 @@ export default class ExpressionFormatter {
         return this.formatCaseElse(node);
       case NodeType.clause:
         return this.formatClause(node);
+      case NodeType.pipe:
+        return this.formatPipe(node);
       case NodeType.set_operation:
         return this.formatSetOperation(node);
       case NodeType.limit_clause:
@@ -245,6 +248,21 @@ export default class ExpressionFormatter {
     this.layout.add(WS.NEWLINE, WS.INDENT);
     this.formatNode(node.elseKw);
     this.layout = this.formatSubExpression(node.result);
+  }
+
+  private formatPipe(node: PipeNode) {
+    this.layout.indentation.increaseBlockLevel();
+    this.layout.add(WS.NEWLINE, WS.INDENT, '|>', WS.SPACE);
+    const outerLayout = this.layout;
+    this.layout = new Layout(outerLayout.indentation);
+    const items = this.formatSubExpression(node.children).getLayoutItems();
+    // Clause formatters start with a newline. Keep the first keyword beside |>.
+    while (typeof items[0] === 'number' && items[0] !== WS.MANDATORY_NEWLINE) {
+      items.shift();
+    }
+    this.layout = outerLayout;
+    this.layout.add(...items);
+    this.layout.indentation.decreaseBlockLevel();
   }
 
   private formatClause(node: ClauseNode) {
