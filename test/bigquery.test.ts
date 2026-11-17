@@ -66,6 +66,56 @@ describe('BigQueryFormatter', () => {
   supportsDataTypeCase(format);
 
   describe('pipe syntax', () => {
+    it('preserves the existing formatting of ordinary BigQuery queries', () => {
+      expect(
+        format(
+          'SELECT region, SUM(amount) AS total FROM sales WHERE amount > 0 GROUP BY region ORDER BY total DESC LIMIT 10;'
+        )
+      ).toBe(dedent`
+        SELECT
+          region,
+          SUM(amount) AS total
+        FROM
+          sales
+        WHERE
+          amount > 0
+        GROUP BY
+          region
+        ORDER BY
+          total DESC
+        LIMIT
+          10;
+      `);
+    });
+
+    it.each([
+      {},
+      { keywordCase: 'lower' as const, tabWidth: 4 },
+      { indentStyle: 'tabularLeft' as const },
+      { indentStyle: 'tabularRight' as const },
+      { useTabs: true, linesBetweenQueries: 2 },
+      { newlineBeforeSemicolon: true },
+    ])('keeps pipe and ordinary statement formatting independent with %j', cfg => {
+      const ordinary =
+        'SELECT aggregate, extend, amount AS value FROM sales WHERE amount > 0 ORDER BY amount LIMIT 10;';
+      const pipe =
+        'FROM sales |> EXTEND amount + 1 AS adjusted |> SET amount = adjusted |> DROP adjusted |> AS s;';
+      const statements = [
+        ordinary,
+        pipe,
+        'UPDATE sales SET amount = 1 WHERE active;',
+        pipe,
+        ordinary,
+      ];
+      const result = format(statements.join(' '), cfg);
+      expect(result).toBe(
+        statements
+          .map(statement => format(statement, cfg))
+          .join('\n'.repeat((cfg.linesBetweenQueries ?? 1) + 1))
+      );
+      expect(format(result, cfg)).toBe(result);
+    });
+
     it('starts with FROM and indents each pipe step without splitting the operator', () => {
       const result = format('FROM sales |> WHERE amount > 0 |> SELECT region, amount |> LIMIT 10;');
       expect(result).toBe(dedent`
