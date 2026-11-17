@@ -28,6 +28,7 @@ export enum TokenType {
   XOR = 'XOR',
   OPERATOR = 'OPERATOR',
   PIPE = 'PIPE', // BigQuery |>
+  PIPE_CLAUSE = 'PIPE_CLAUSE',
   COMMA = 'COMMA',
   ASTERISK = 'ASTERISK', // *
   PROPERTY_ACCESS_OPERATOR = 'PROPERTY_ACCESS_OPERATOR', // Usually "."

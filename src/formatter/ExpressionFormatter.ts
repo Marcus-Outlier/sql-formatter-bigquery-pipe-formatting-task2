@@ -276,6 +276,11 @@ export default class ExpressionFormatter {
   }
 
   private isOnelineClause(node: ClauseNode): boolean {
+    if (node.nameKw.tokenType === TokenType.PIPE_CLAUSE) {
+      return !['SELECT', 'ORDER BY', 'AGGREGATE', 'EXTEND', 'SET', 'DROP'].includes(
+        node.nameKw.text
+      );
+    }
     if (isTabularStyle(this.cfg)) {
       return this.dialectCfg.tabularOnelineClauses[node.nameKw.text];
     } else {

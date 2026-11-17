@@ -145,8 +145,8 @@ all_columns_asterisk -> %ASTERISK {%
   () => ({ type: NodeType.all_columns_asterisk })
 %}
 
-other_clause -> %RESERVED_CLAUSE free_form_sql:* {%
-  ([nameToken, children]) => ({
+other_clause -> (%RESERVED_CLAUSE | %PIPE_CLAUSE) free_form_sql:* {%
+  ([[nameToken], children]) => ({
     type: NodeType.clause,
     nameKw: toKeywordNode(nameToken),
     children,

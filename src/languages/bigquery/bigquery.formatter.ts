@@ -199,11 +199,24 @@ export const bigquery: DialectOptions = {
 };
 
 function postProcess(tokens: Token[]): Token[] {
-  return detectArraySubscripts(combineParameterizedTypes(tokens)).map(token =>
-    token.type === TokenType.OPERATOR && token.text === '|>'
-      ? { ...token, type: TokenType.PIPE }
-      : token
-  );
+  let afterPipe = false;
+  return detectArraySubscripts(combineParameterizedTypes(tokens)).map(token => {
+    if (token.type === TokenType.OPERATOR && token.text === '|>') {
+      afterPipe = true;
+      return { ...token, type: TokenType.PIPE };
+    }
+    if (token.type === TokenType.LINE_COMMENT || token.type === TokenType.BLOCK_COMMENT) {
+      return token;
+    }
+    if (afterPipe) {
+      afterPipe = false;
+      // Keep SELECT's special handling of the all-columns asterisk.
+      if (token.type !== TokenType.RESERVED_SELECT && /^[a-z]+(?: [a-z]+)*$/i.test(token.text)) {
+        return { ...token, type: TokenType.PIPE_CLAUSE, text: token.text.toUpperCase() };
+      }
+    }
+    return token;
+  });
 }
 
 // Converts OFFSET token inside array from RESERVED_CLAUSE to RESERVED_FUNCTION_NAME

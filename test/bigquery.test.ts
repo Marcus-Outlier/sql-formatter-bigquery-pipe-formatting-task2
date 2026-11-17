@@ -71,13 +71,11 @@ describe('BigQueryFormatter', () => {
       expect(result).toBe(dedent`
         FROM
           sales
-          |> WHERE
-            amount > 0
+          |> WHERE amount > 0
           |> SELECT
             region,
             amount
-          |> LIMIT
-            10;
+          |> LIMIT 10;
       `);
       expect(format(result)).toBe(result);
     });
@@ -91,8 +89,7 @@ describe('BigQueryFormatter', () => {
           (
             FROM
               sales
-              |> WHERE
-                amount > 0
+              |> WHERE amount > 0
           )
           |> SELECT
             *;
@@ -120,9 +117,27 @@ describe('BigQueryFormatter', () => {
       expect(format(result)).toBe(result);
     });
 
+    it.each(['select', 'order by', 'aggregate', 'extend', 'set', 'drop'])(
+      'indents the body of %s and preserves lowercase input',
+      keyword => {
+        const result = format(`from sales |> ${keyword} amount`);
+        expect(result).toBe(`from\n  sales\n  |> ${keyword}\n    amount`);
+        expect(format(result)).toBe(result);
+        expect(format(`from sales |> ${keyword} amount`, { keywordCase: 'upper' })).toBe(
+          `FROM\n  sales\n  |> ${keyword.toUpperCase()}\n    amount`
+        );
+      }
+    );
+
+    it.each(['where amount > 0', 'limit 10', 'as s'])('keeps %s on the same line', step => {
+      const result = format(`from sales |> ${step}`);
+      expect(result).toBe(`from\n  sales\n  |> ${step}`);
+      expect(format(result)).toBe(result);
+    });
+
     it('respects keyword case and indentation options', () => {
       expect(format('FROM sales |> WHERE amount > 0', { keywordCase: 'lower', tabWidth: 4 })).toBe(
-        'from\n    sales\n    |> where\n        amount > 0'
+        'from\n    sales\n    |> where amount > 0'
       );
     });
   });
