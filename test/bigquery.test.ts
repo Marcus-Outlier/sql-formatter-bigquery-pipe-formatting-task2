@@ -218,6 +218,38 @@ describe('BigQueryFormatter', () => {
         'from\n    sales\n    |> where amount > 0'
       );
     });
+
+    const finalSteps = [
+      ['select', 'amount', '\n    amount'],
+      ['order by', 'amount', '\n    amount'],
+      ['aggregate', 'sum(amount) as total', '\n    sum(amount) as total'],
+      ['extend', 'amount + 1 as adjusted', '\n    amount + 1 as adjusted'],
+      ['set', 'amount = 1', '\n    amount = 1'],
+      ['drop', 'amount', '\n    amount'],
+      ['as', 's', ' s'],
+      ['where', 'amount > 0', ' amount > 0'],
+      ['limit', '10', ' 10'],
+    ];
+
+    it.each(finalSteps)(
+      'attaches the semicolon to the final %s step',
+      (keyword, body, expectedBody) => {
+        const result = format(`from sales |> where active |> ${keyword} ${body};`);
+        expect(result).toBe(`from\n  sales\n  |> where active\n  |> ${keyword}${expectedBody};`);
+        expect(format(result)).toBe(result);
+      }
+    );
+
+    it.each(finalSteps)('applies keywordCase to the %s pipe keyword', (keyword, body) => {
+      const upper = format(`from sales |> ${keyword} ${body};`, { keywordCase: 'upper' });
+      expect(upper).toContain(`|> ${keyword.toUpperCase()}`);
+      const lower = format(`FROM sales |> ${keyword.toUpperCase()} ${body};`, {
+        keywordCase: 'lower',
+      });
+      expect(lower).toContain(`|> ${keyword}`);
+      expect(upper).toMatch(/[^\s];$/);
+      expect(lower).toMatch(/[^\s];$/);
+    });
   });
 
   // Note: BigQuery supports single dashes inside identifiers, so my-ident would be
